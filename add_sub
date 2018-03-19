@@ -1,0 +1,1014 @@
+#!/bin/sh
+
+out=output.txt
+rm $out
+
+#this Script will read Two files that contain Huge Numbers and Add or Subtract them
+
+#Test if the number of Arguments correct 
+if [ "$#" -ne 3 ] 
+then 
+  echo "Usage: $0 File1.txt  Operation( + , - )  File2.txt "
+  exit 1     
+elif [ ! -e $1 -o ! -e $3 ]    #check if both files Exists
+  then
+    echo "Error: One or Both Files Does Not Exist"
+    exit 2
+fi
+
+#check if Operation is correct
+if [ "$2" != '+' -a "$2" != '-' ]
+then
+ echo "Error : Operation is Neither '+' Nor '-' ."
+ exit 3
+fi
+
+#find the size of each integer (Number of Digits)
+size1=$(wc -c $1 |cut  -d' ' -f1)
+size2=$(wc -c $3 |cut  -d' ' -f1)
+
+#always calculate additional character EOF 
+size1=$(($size1-1))
+size2=$(($size2-1))
+
+#Note:the size might include the sign 
+
+#this is for testing ( Delete Later )
+echo "The first Number have $size1 Digit"
+echo "The Second Number have $size2 Digit"
+echo "Size Might include sign Character "
+op=$2
+echo "Operation is '$op'"
+#we will save two flags one for each number to indicate if it is positive =0 or negative =1
+
+flag1=0
+flag2=0
+
+#get the first digit of each number , if it was a sign '-' then we make it's flag to 1 else it remains 0
+#these flags are used to indicate if the numbers are negative or not 
+temp1=$(cut -c1 $1)
+temp2=$(cut -c1 $3)
+
+if [ "$temp1" = '-' ]
+then
+ flag1=1
+ echo "$flag1 :number one is Negative ."
+fi
+
+if [ "$temp2" = '-' ]
+then
+ flag2=1
+ echo "$flag2 :number Two is Negative . "
+fi
+
+#echo $flag1
+#echo $flag2
+
+#Until now we found the size of each Number and if the number is negative or not 
+#Now We will read the Two numbers Digit by digit
+#we have 8 cases All must be handled Seperatly 
+# A + B* , A + - B* , - A + B *, - A + - B* 
+# A - B* , A - - B* , - A - B* , - A - - B* 
+# we Can Merge some Cases together (A-B = A+-B) & (A+B == A--B) & (-A+B = -A -- B) & ( -A-B = -A +-B)
+# so we Have four Cases we will implement 
+
+echo "Start Here"
+i=$size1 
+j=$size2
+carry=0
+borrow=0
+
+# case A + B 
+if [ "$flag1" -eq 0 -a "$flag2" -eq 0 -a "$op" = '+' ]
+then 
+ while [ "$i" -ne 0 -a "$j" -ne 0 ]
+ do
+   digit1=`cut -c$i $1`
+   digit2=`cut -c$j $3`
+   if [ "$op" = '+' ]
+   then
+      result=$(expr $digit1 + $digit2 + $carry)
+      carry=0
+      if [ "$result" -gt 9 ]
+         then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 0 ]
+ then 
+    while [ "$i" -ne 0 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 + $carry)
+     if [ "$result" -gt 9 ]
+         then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+    if [ "$carry" -eq 1 ]
+     then
+       echo $carry >> $out
+     fi 
+ elif [ "$j" -ne 0 ]
+   then 
+    while [ "$j" -ne 0 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 + $carry)
+     if [ "$result" -gt 9 ]
+         then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+     if [ "$carry" -eq 1 ]
+        then
+          echo $carry >> $out
+        fi 
+  else
+     if [ "$carry" -ne 0 ]
+         then
+            echo $carry >> $out
+         fi
+ fi
+
+#Case A--B Same code but with different Test and ranges
+elif [ "$flag1" -eq 0 -a "$flag2" -eq 1 -a "$op" = '-' ]
+then 
+ # i & j are the sizes of both numbers 
+ # j now must be not equal to the size -1 because of the size 
+ while [ "$i" -ne 0 -a "$j" -ne 1 ]
+ do
+   digit1=`cut -c$i $1`
+   digit2=`cut -c$j $3`
+   if [ "$op" = '-' ]
+   then
+      result=$(expr $digit1 + $digit2 + $carry)
+      carry=0
+      if [ "$result" -gt 9 ]
+         then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+         
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 0 ]
+ then 
+    while [ "$i" -ne 0 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 + $carry)
+     if [ "$result" -gt 9 ]
+       then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+     if [ "$carry" -eq 1 ]
+        then
+          echo $carry >> $out
+        fi
+ elif [ "$j" -ne 1 ]
+   then 
+    while [ "$j" -ne 1 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 + $carry)
+     if [ "$result" -gt 9 ]
+       then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+     j=$((j-1)) 
+    done
+     if [ "$carry" -eq 1 ]
+        then
+          echo $carry >> $out
+        fi
+  else
+     if [ "$carry" -ne 0 ]
+         then
+            echo $carry >> $out
+         fi
+ fi
+# Case A - B 
+# we have two cases which is A > B and B > A 
+# both must be handled seperatly
+# A > B iff size A > B else if equal LSD of A > LSD B
+elif [ "$flag1" -eq 0 -a "$flag2" -eq 0 -a "$op" = '-' ]
+then 
+ #indicate A > B as Default
+ large=0
+ if [ "$size2" -gt "$size1" ]
+  then 
+   large=1
+  elif [ "$size1" -eq "$size2" ]
+     then 
+      k=1 
+      while [ `cut -c$k $3` -eq `cut -c$k $1` -a "$k" -lt "$size1" ]
+        do
+            k=$((k+1))
+        done
+     if [ `cut -c$k $3` -gt `cut -c$k $1` ]
+        then 
+        large=1
+     fi
+ fi
+ 
+ # now we Determine the Largest Number between Both A And B
+ #Case 1 A > B
+
+ if [ "$large" -eq 0 ]
+ then
+
+ while [ "$i" -ne 0 -a "$j" -ne 0 ]
+ do
+   digit1=`cut -c$i $1`
+   digit2=`cut -c$j $3`
+   if [ "$op" = '-' ]
+   then
+      result=$(expr $digit1 - $digit2 - $borrow)
+      borrow=0
+      # if result negative then we have borrow 
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi      
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 0 ]
+ then 
+    while [ "$i" -ne 0 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+ elif [ "$j" -ne 0 ]
+   then 
+    while [ "$j" -ne 0 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+ fi
+
+ else 
+ #B > A Switch Every thing , make it B - A and print a Negative Sign at the End 
+ while [ "$i" -ne 0 -a "$j" -ne 0 ]
+ do
+   digit1=`cut -c$j $3`
+   digit2=`cut -c$i $1`
+   if [ "$op" = '-' ]
+   then
+      result=$(expr $digit1 - $digit2 - $borrow)
+      borrow=0
+      # if result negative then we have borrow 
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 0 ]
+ then 
+    while [ "$i" -ne 0 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+ elif [ "$j" -ne 0 ]
+   then 
+    while [ "$j" -ne 0 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+  fi
+  
+  echo "-" >> $out
+ fi
+
+# Case A + - B
+
+elif [ "$flag1" -eq 0 -a "$flag2" -eq 1 -a "$op" = '+' ]
+then 
+ #indicate A > B as Default
+ large=0
+ if [ "`expr $size2 - 1`" -gt "$size1" ]
+  then 
+   large=1
+  elif [ "`expr $size1 - 1`" -eq "$size2" ]
+     then 
+      k=1 
+      m=2 # after sign 
+      while [ `cut -c$m $3` -eq `cut -c$k $1` -a "$k" -lt "$size1" -a "$m" -lt "`expr $size2 - 1`" ]
+        do
+            k=$((k+1))
+            m=$((m+1))
+        done
+     if [ `cut -c$m $3` -gt `cut -c$k $1` ]
+        then 
+        large=1
+     fi
+ fi
+ 
+ # now we Determine the Largest Number between Both A And B
+ #Case 1 A > B
+
+ if [ "$large" -eq 0 ]
+ then
+
+ while [ "$i" -ne 0 -a "$j" -ne 1 ]
+ do
+   digit1=`cut -c$i $1`
+   digit2=`cut -c$j $3`
+   if [ "$op" = '+' ]
+   then
+      result=$(expr $digit1 - $digit2 - $borrow)
+      borrow=0
+      # if result negative then we have borrow 
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi      
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 0 ]
+ then 
+    while [ "$i" -ne 0 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+ elif [ "$j" -ne 1 ]
+   then 
+    while [ "$j" -ne 1 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+ fi
+
+ else 
+ #B > A Switch Every thing , make it B - A and print a Negative Sign at the End 
+ while [ "$i" -ne 0 -a "$j" -ne 1 ]
+ do
+   digit1=`cut -c$j $3`
+   digit2=`cut -c$i $1`
+   if [ "$op" = '+' ]
+   then
+      result=$(expr $digit1 - $digit2 - $borrow)
+      borrow=0
+      # if result negative then we have borrow 
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 0 ]
+ then 
+    while [ "$i" -ne 0 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+ elif [ "$j" -ne 1 ]
+   then 
+    while [ "$j" -ne 1 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+  fi
+  
+  echo "-" >> $out
+ fi
+
+# Case - A +  B
+
+elif [ "$flag1" -eq 1 -a "$flag2" -eq 0 -a "$op" = '+' ]
+then 
+ #indicate A > B as Default
+ large=0
+ if [ "`expr $size2 - 1`" -gt "$size1" ]
+  then 
+   large=1
+  elif [ "`expr $size1 - 1`" -eq "$size2" ]
+     then 
+      k=2
+      m=1 # after sign 
+      while [ `cut -c$m $3` -eq `cut -c$k $1` -a "$k" -lt "$size1" -a "$m" -lt "`expr $size2 - 1`" ]
+        do
+            k=$((k+1))
+            m=$((m+1))
+        done
+     if [ `cut -c$m $3` -gt `cut -c$k $1` ]
+        then 
+        large=1
+     fi
+ fi
+
+# if B > A
+ if [ "$large" -eq 1 ]
+  then
+
+ while [ "$i" -ne 1 -a "$j" -ne 0 ]
+ do
+   digit1=`cut -c$j $3`
+   digit2=`cut -c$i $1`
+   if [ "$op" = '+' ]
+   then
+      result=$(expr $digit1 - $digit2 - $borrow)
+      borrow=0
+      # if result negative then we have borrow 
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 1 ]
+ then 
+    while [ "$i" -ne 1 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+ elif [ "$j" -ne 0 ]
+   then 
+    while [ "$j" -ne 0 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+  fi
+  else
+ while [ "$i" -ne 1 -a "$j" -ne 0 ]
+ do
+   digit1=`cut -c$i $1`
+   digit2=`cut -c$j $3`
+   if [ "$op" = '+' ]
+   then
+      result=$(expr $digit1 - $digit2 - $borrow)
+      borrow=0
+      # if result negative then we have borrow 
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 1 ]
+ then 
+    while [ "$i" -ne 1 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+ elif [ "$j" -ne 0 ]
+   then 
+    while [ "$j" -ne 0 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+  fi
+  
+  echo "-" >> $out
+  fi
+
+#- A - - B  = -A + B
+
+elif [ "$flag1" -eq 1 -a "$flag2" -eq 1 -a "$op" = '-' ]
+then 
+ #indicate A > B as Default
+ large=0
+ if [ "$size2" -gt "$size1" ]
+  then 
+   large=1
+  elif [ "$size1" -eq "$size2" ]
+     then 
+      k=2
+      m=2  
+      while [ `cut -c$m $3` -eq `cut -c$k $1` -a "$m" -lt "`expr $size2 - 1`" ]
+        do
+            k=$((k+1))
+            m=$((m+1))
+        done
+     if [ `cut -c$m $3` -gt `cut -c$k $1` ]
+        then 
+        large=1
+     fi
+ fi
+
+# if B > A
+ if [ "$large" -eq 1 ]
+  then
+
+ while [ "$i" -ne 1 -a "$j" -ne 1 ]
+ do
+   digit1=`cut -c$j $3`
+   digit2=`cut -c$i $1`
+   if [ "$op" = '-' ]
+   then
+      result=$(expr $digit1 - $digit2 - $borrow)
+      borrow=0
+      # if result negative then we have borrow 
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 1 ]
+ then 
+    while [ "$i" -ne 1 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+ elif [ "$j" -ne 1 ]
+   then 
+    while [ "$j" -ne 1 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+  fi
+  else
+ while [ "$i" -ne 1 -a "$j" -ne 1 ]
+ do
+   digit1=`cut -c$i $1`
+   digit2=`cut -c$j $3`
+   if [ "$op" = '-' ]
+   then
+      result=$(expr $digit1 - $digit2 - $borrow)
+      borrow=0
+      # if result negative then we have borrow 
+      if [ "$result" -lt 0 ]
+         then
+           #take 1 from Higher Digit
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 1 ]
+ then 
+    while [ "$i" -ne 1 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+ elif [ "$j" -ne 1 ]
+   then 
+    while [ "$j" -ne 1 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 - $borrow)
+      if [ "$result" -lt 0 ]
+         then
+           result=$(($result + 10 ))
+           borrow=1
+           echo $result >> $out
+         else
+          borrow=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+  fi
+  
+  echo "-" >> $out
+  fi
+
+#- A - B 
+
+elif [ "$flag1" -eq 1 -a "$flag2" -eq 0 -a "$op" = '-' ]
+then 
+
+ while [ "$i" -ne 1 -a "$j" -ne 0 ]
+ do
+   digit1=`cut -c$i $1`
+   digit2=`cut -c$j $3`
+   if [ "$op" = '-' ]
+   then
+      result=$(expr $digit1 + $digit2 + $carry)
+      carry=0
+      if [ "$result" -gt 9 ]
+         then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 1 ]
+ then 
+    while [ "$i" -ne 1 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 + $carry)
+     if [ "$result" -gt 9 ]
+         then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+    if [ "$carry" -eq 1 ]
+     then
+       echo $carry >> $out
+     fi 
+ elif [ "$j" -ne 0 ]
+   then 
+    while [ "$j" -ne 0 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 + $carry)
+     if [ "$result" -gt 9 ]
+         then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+     if [ "$carry" -eq 1 ]
+        then
+          echo $carry >> $out
+        fi 
+     echo "-" >> $out
+  else
+     if [ "$carry" -ne 0 ]
+         then
+            echo $carry >> $out
+         fi
+   echo "-" >> $out
+ fi
+
+# - A + - B
+
+
+elif [ "$flag1" -eq 1 -a "$flag2" -eq 1 -a "$op" = '+' ]
+then 
+ while [ "$i" -ne 1 -a "$j" -ne 1 ]
+ do
+   digit1=`cut -c$i $1`
+   digit2=`cut -c$j $3`
+   if [ "$op" = '+' ]
+   then
+      result=$(expr $digit1 + $digit2 + $carry)
+      carry=0
+      if [ "$result" -gt 9 ]
+         then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+   fi
+   i=$((i-1))
+   j=$((j-1))
+ done
+
+ if [ "$i" -ne 1 ]
+ then 
+    while [ "$i" -ne 1 ]
+    do
+     digit1=`cut -c$i $1`
+     result=$(expr $digit1 + $carry)
+     if [ "$result" -gt 9 ]
+         then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+     i=$((i-1))
+    done
+    if [ "$carry" -eq 1 ]
+     then
+       echo $carry >> $out
+     fi 
+ elif [ "$j" -ne 1 ]
+   then 
+    while [ "$j" -ne 1 ]
+    do
+     digit2=`cut -c$j $3`
+     result=$(expr $digit2 + $carry)
+     if [ "$result" -gt 9 ]
+         then
+           result=$(($result % 10))
+           carry=1
+           echo $result >> $out
+         else
+          carry=0
+          echo $result >> $out
+      fi
+     j=$((j-1))
+     done
+     if [ "$carry" -eq 1 ]
+        then
+          echo $carry >> $out
+        fi 
+ echo "-" >> $out
+  else
+     if [ "$carry" -ne 0 ]
+         then
+            echo $carry >> $out
+         fi
+   echo "\n-" >> $out
+ fi
+
+
+fi  # end of all if else statement
+
+# output file contain the result but not in the Right Order so i will rearrange the File and Display it again
+
+tr '\n' ' ' < $out  | rev > test.txt
+tr -d ' ' < test.txt > file.txt
+rm test.txt
+echo " \n `cat $1` $op \n `cat $3`\n------------\n`cat file.txt`"
+rm file.txt
+
+
